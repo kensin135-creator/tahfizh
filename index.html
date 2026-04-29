@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Athaya Tahfizh & Absensi</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
+    body { font-family: 'Plus Jakarta Sans', sans-serif; overflow: hidden; background-color: #F8FAFC; }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes popIn { 0% { opacity: 0; transform: scale(0.97); } 100% { opacity: 1; transform: scale(1); } }
+    .animate-fade-in-up { animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    .animate-pop-in { animation: popIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+    
+    // --- GANTI URL INI DENGAN URL DEPLOY GOOGLE APPS SCRIPT ANDA ---
+    const API_URL = "URL_GOOGLE_APPS_SCRIPT_ANDA_DI_SINI";
+
+    // --- ICON FACTORY ---
+    const Icon = ({ name, size = 20, className = "" }) => {
+      const iconRef = useRef(null);
+      useEffect(() => {
+        if (iconRef.current && window.lucide) {
+          iconRef.current.innerHTML = `<i data-lucide="${name}"></i>`;
+          window.lucide.createIcons({ root: iconRef.current, attrs: { width: size, height: size, class: className } });
+        }
+      }, [name, size, className]);
+      return <span ref={iconRef} style={{ display: 'contents' }} />;
+    };
+
+    const AthayaLogo = ({ className = "w-12 h-12" }) => (
+      <svg viewBox="0 0 100 100" className={className} fill="none">
+        <defs><linearGradient id="lg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#FFC300" /><stop offset="100%" stopColor="#FF3366" /></linearGradient></defs>
+        <path d="M 22 75 V 38 L 50 18 L 78 38 V 58" stroke="url(#lg)" strokeWidth="12" strokeLinecap="round" />
+        <circle cx="48" cy="48" r="10" fill="url(#lg)" />
+      </svg>
+    );
+
+    function App() {
+      const [isLoggedIn, setIsLoggedIn] = useState(false);
+      const [isLoading, setIsLoading] = useState(true);
+      const [authUser, setAuthUser] = useState(null);
+      const [activeMenu, setActiveMenu] = useState('dashboard');
+      const [db, setDb] = useState({ Santri: [], Guru: [], Kegiatan: [], Absensi: [], Ujian: [], Halaqoh: [], Alumni: [] });
+
+      // Fetch Data via Fetch API (Bukan google.script.run)
+      useEffect(() => {
+        if (API_URL === "URL_GOOGLE_APPS_SCRIPT_ANDA_DI_SINI") {
+          alert("Peringatan: Silakan isi API_URL di dalam kode index.html terlebih dahulu!");
+          setIsLoading(false); return;
+        }
+        fetch(`${API_URL}?action=getInitialData`)
+          .then(res => res.json())
+          .then(data => { setDb(data); setIsLoading(false); })
+          .catch(e => { console.error(e); setIsLoading(false); });
+      }, []);
+
+      const sync = (action, sheetName, data) => {
+        fetch(API_URL, {
+          method: 'POST',
+          mode: 'no-cors', // Penting untuk GAS
+          body: JSON.stringify({ action, sheetName, data })
+        });
+      };
+
+      const handleLogin = (e) => {
+        e.preventDefault();
+        const u = e.target.u.value; const p = e.target.p.value;
+        if(u === 'admin' && p === 'admin') { setAuthUser({ name: 'Administrator', role: 'admin' }); setIsLoggedIn(true); }
+        else {
+          const g = db.Guru.find(x => x.username === u && x.password === p);
+          if(g) { setAuthUser({ name: g.name, role: 'guru', data: g }); setIsLoggedIn(true); setActiveMenu('absensi'); }
+          else alert("Login Gagal!");
+        }
+      };
+
+      if (isLoading) return <div className="h-screen flex items-center justify-center font-bold text-emerald-600">MENYIAPKAN ATHAYA...</div>;
+
+      if (!isLoggedIn) {
+        return (
+          <div className="min-h-screen flex items-center justify-center p-6 bg-emerald-950 relative">
+            <div className="max-w-md w-full bg-white rounded-[3rem] shadow-2xl p-10 animate-pop-in relative z-10">
+              <div className="flex flex-col items-center mb-10">
+                <AthayaLogo className="w-24 h-24 mb-4" />
+                <h1 className="text-3xl font-black text-slate-800 tracking-tight">Athaya</h1>
+                <p className="text-emerald-600 font-bold text-sm tracking-widest uppercase">Management System</p>
+              </div>
+              <form onSubmit={handleLogin} className="space-y-6">
+                <input name="u" placeholder="Username" className="w-full bg-slate-50 border-0 p-4 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold" required />
+                <input name="p" type="password" placeholder="Password" className="w-full bg-slate-50 border-0 p-4 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold" required />
+                <button className="w-full bg-emerald-600 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-all">MASUK SISTEM</button>
+              </form>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="flex h-screen overflow-hidden">
+          <aside className="w-72 bg-emerald-950 text-white p-8 flex flex-col border-r border-emerald-900/50">
+            <div className="font-black text-xl mb-12 italic">ATHAYA<span className="text-emerald-500">IBS</span></div>
+            <nav className="flex-1 space-y-2">
+              <button onClick={() => setActiveMenu('dashboard')} className={`w-full flex items-center gap-4 p-4 rounded-2xl font-bold ${activeMenu === 'dashboard' ? 'bg-emerald-600 shadow-lg' : 'hover:bg-emerald-900 opacity-50'}`}><Icon name="layout-dashboard" /> Dashboard</button>
+              <button onClick={() => setActiveMenu('absensi')} className={`w-full flex items-center gap-4 p-4 rounded-2xl font-bold ${activeMenu === 'absensi' ? 'bg-emerald-600 shadow-lg' : 'hover:bg-emerald-900 opacity-50'}`}><Icon name="calendar-days" /> Absensi</button>
+              <button onClick={() => setActiveMenu('tahfizh')} className={`w-full flex items-center gap-4 p-4 rounded-2xl font-bold ${activeMenu === 'tahfizh' ? 'bg-emerald-600 shadow-lg' : 'hover:bg-emerald-900 opacity-50'}`}><Icon name="book-open" /> Tahfizh</button>
+            </nav>
+            <button onClick={() => setIsLoggedIn(false)} className="mt-auto text-red-400 font-bold p-4 flex items-center gap-4"><Icon name="log-out" /> KELUAR</button>
+          </aside>
+          
+          <main className="flex-1 flex flex-col overflow-hidden">
+            <header className="h-24 bg-white border-b flex items-center px-12 justify-between">
+              <h2 className="font-black text-2xl uppercase tracking-tighter text-slate-800">{activeMenu}</h2>
+              <span className="font-bold text-emerald-700 bg-emerald-50 px-5 py-2 rounded-xl text-sm">{authUser.name}</span>
+            </header>
+            <div className="flex-1 p-12 overflow-y-auto custom-scrollbar">
+              {activeMenu === 'absensi' && (
+                <div className="bg-white p-10 rounded-[2.5rem] shadow-sm animate-fade-in-up">
+                  <div className="flex justify-between items-center mb-10">
+                    <h3 className="font-black text-2xl">Presensi Harian</h3>
+                  </div>
+                  <div className="bg-slate-50 p-6 rounded-2xl mb-8">
+                    <p className="text-sm font-bold text-slate-500 mb-4">INPUT CEPAT (OTOMATIS SINKRON SHEETS)</p>
+                    <div className="flex gap-4">
+                      <select id="sID" className="flex-1 p-4 rounded-xl border-0 font-bold outline-none ring-2 ring-transparent focus:ring-emerald-500/20"><option value="">Pilih Santri</option>{db.Santri.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
+                      <button onClick={()=>{
+                        const id = document.getElementById('sID').value;
+                        if(!id) return alert('Pilih!');
+                        const obj = { id: Date.now(), santriId: id, sesi:'Subuh', status:'Hadir', date: new Date().toISOString().split('T')[0], guru: authUser.name };
+                        setDb({...db, Absensi: [obj, ...db.Absensi]}); sync('insert','Absensi',obj);
+                      }} className="bg-emerald-600 text-white px-8 rounded-xl font-black">HADIR</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {activeMenu === 'dashboard' && <div className="text-center py-20 text-slate-300 font-black uppercase tracking-widest">Selamat Datang di Portal Athaya IBS</div>}
+            </div>
+            <footer className="p-8 text-center bg-white border-t border-slate-100 font-black text-[10px] text-slate-400 uppercase tracking-[0.3em]">
+              © 2026 Athaya IBS Solo - Sistem Manajemen Tahfizh by oosho studio
+            </footer>
+          </main>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
