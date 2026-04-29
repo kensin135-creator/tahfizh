@@ -1,11 +1,12 @@
 /**
  * =================================================================
- * BACKEND API - ATHAYA TAHFIDZ & ATTENDANCE (EXTERNAL API VERSION)
+ * BACKEND API - ATHAYA TAHFIDZ & ATTENDANCE SYSTEM (FINAL)
  * Database: Google Sheets
- * Author: oosho studio
+ * Developer: oosho studio
  * =================================================================
  */
 
+// 1. SETUP DATABASE (Jalankan satu kali dari menu toolbar)
 function setupDatabase() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var dbSchema = {
@@ -18,6 +19,7 @@ function setupDatabase() {
     'Alumni': ['id', 'name', 'nis', 'tahunLulus', 'pencapaianJuz', 'predikat'],
     'Evaluasi': ['id', 'date', 'santriId', 'periode', 'kelancaran', 'tajwid', 'adab', 'catatan']
   };
+
   for (var sheetName in dbSchema) {
     var sheet = ss.getSheetByName(sheetName);
     if (!sheet) {
@@ -27,35 +29,37 @@ function setupDatabase() {
       sheet.setFrozenRows(1);
     }
   }
-  return "Database Berhasil Dibuat!";
+  return "Sistem Siap! Database Athaya telah dibuat.";
 }
 
-// Handler untuk GET (Ambil Data)
+// 2. ENTRY POINT GET (Ambil Data)
 function doGet(e) {
-  var action = e.parameter.action;
-  if (action === 'getInitialData') {
-    var data = fetchAllData();
-    return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
-  }
-  return HtmlService.createHtmlOutput("Athaya API is Running");
+  var data = fetchAllData();
+  return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
 }
 
-// Handler untuk POST (Simpan/Update/Delete)
+// 3. ENTRY POINT POST (Simpan/Update Data)
 function doPost(e) {
-  var params = JSON.parse(e.postData.contents);
-  var result = handleSync(params.action, params.sheetName, params.data);
-  return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+  try {
+    var params = JSON.parse(e.postData.contents);
+    var result = handleSync(params.action, params.sheetName, params.data);
+    return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({success: false, error: err.toString()})).setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 function fetchAllData() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var result = {};
   var sheets = ['Santri', 'Guru', 'Kegiatan', 'Absensi', 'Ujian', 'Halaqoh', 'Alumni', 'Evaluasi'];
+  
   sheets.forEach(function(sName) {
     var sheet = ss.getSheetByName(sName);
     if (!sheet) return;
     var values = sheet.getDataRange().getValues();
     if (values.length <= 1) { result[sName] = []; return; }
+    
     var headers = values[0];
     var rows = [];
     for (var i = 1; i < values.length; i++) {
@@ -75,19 +79,25 @@ function fetchAllData() {
 function handleSync(action, sheetName, dataObj) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
   if (!sheet) return { success: false };
+
   if (action === 'insert') {
     var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
     var newRow = headers.map(function(h) { return dataObj[h] !== undefined ? dataObj[h] : ''; });
     sheet.appendRow(newRow);
-  } else if (action === 'update' || action === 'delete') {
+  } 
+  else if (action === 'update' || action === 'delete') {
     var values = sheet.getDataRange().getValues();
     var idIndex = values[0].indexOf('id');
     for (var i = 1; i < values.length; i++) {
       if (values[i][idIndex] == dataObj.id) {
         if (action === 'update') {
-          var updatedRow = values[0].map(function(h) { return dataObj[h] !== undefined ? dataObj[h] : values[i][values[0].indexOf(h)]; });
+          var updatedRow = values[0].map(function(h) {
+            return dataObj[h] !== undefined ? dataObj[h] : values[i][values[0].indexOf(h)];
+          });
           sheet.getRange(i + 1, 1, 1, values[0].length).setValues([updatedRow]);
-        } else { sheet.deleteRow(i + 1); }
+        } else {
+          sheet.deleteRow(i + 1);
+        }
         break;
       }
     }
